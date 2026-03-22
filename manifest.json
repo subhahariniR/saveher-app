@@ -1,0 +1,26 @@
+{
+  "short_name": "SaveHer",
+  "name": "SaveHer - Women Safety App",
+  "description": "Complete women safety app. Works 100% offline.",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#e11d48",
+  "background_color": "#0d0810",
+  "categories": ["health", "lifestyle", "utilities"],
+  "lang": "en-IN"
+}

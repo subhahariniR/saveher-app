@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/saveher-app/static/css/main.01a63098.css",
+    "main.js": "/saveher-app/static/js/main.46392286.js",
+    "index.html": "/saveher-app/index.html",
+    "main.01a63098.css.map": "/saveher-app/static/css/main.01a63098.css.map",
+    "main.46392286.js.map": "/saveher-app/static/js/main.46392286.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.01a63098.css",
+    "static/js/main.46392286.js"
+  ]
+}
