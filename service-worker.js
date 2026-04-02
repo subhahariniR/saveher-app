@@ -1,104 +1,74 @@
-/* ═══════════════════════════════════════════════════════════════════
-   SaveHer Service Worker — Full Offline Support
-   Caches ALL app files so it works without any internet after install
-   ═══════════════════════════════════════════════════════════════════ */
+/* SaveHer Service Worker v3 — Complete Offline Support */
 
-const CACHE_NAME = "saveher-v1";
-const TILE_CACHE = "saveher-tiles-v1";
+const CACHE      = "saveher-v3";
+const TILE_CACHE = "saveher-tiles-v3";
+const BASE = self.location.pathname.replace(/\/service-worker\.js$/, "") || "";
 
-/* All app shell files to cache on install */
-const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/static/js/main.chunk.js",
-  "/static/js/bundle.js",
-  "/static/js/vendors~main.chunk.js",
-  "/static/css/main.chunk.css",
-  "/manifest.json",
-  "/logo.png",
-  "/favicon.ico",
-  "/siren.mp3",
-  "/leaflet.js",
-  "/leaflet.css",
-  "/images/marker-icon.png",
-  "/images/marker-icon-2x.png",
-  "/images/marker-shadow.png",
+const SHELL = [
+  BASE + "/",
+  BASE + "/index.html",
+  BASE + "/manifest.json",
+  BASE + "/logo.png",
+  BASE + "/favicon.ico",
+  BASE + "/siren.mp3",
+  BASE + "/leaflet.js",
+  BASE + "/leaflet.css",
+  BASE + "/images/marker-icon.png",
+  BASE + "/images/marker-icon-2x.png",
+  BASE + "/images/marker-shadow.png",
 ];
 
-/* ── Install: cache all app shell files ─────────────────────────── */
-self.addEventListener("install", (event) => {
-  console.log("[SaveHer SW] Installing...");
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log("[SaveHer SW] Caching app shell");
-      return cache.addAll(APP_SHELL.map(url => new Request(url, { cache: "reload" })));
-    }).then(() => self.skipWaiting())
+self.addEventListener("install", e => {
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(cache => cache.addAll(SHELL.map(url => new Request(url, { cache: "reload" }))))
+      .then(() => self.skipWaiting())
+      .catch(() => self.skipWaiting())
   );
 });
 
-/* ── Activate: remove old caches ────────────────────────────────── */
-self.addEventListener("activate", (event) => {
-  console.log("[SaveHer SW] Activating...");
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k !== CACHE_NAME && k !== TILE_CACHE)
-          .map((k) => {
-            console.log("[SaveHer SW] Removing old cache:", k);
-            return caches.delete(k);
-          })
-      )
-    ).then(() => self.clients.claim())
+self.addEventListener("activate", e => {
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== TILE_CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-/* ── Fetch: serve from cache, fallback to network ───────────────── */
-self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
+self.addEventListener("fetch", e => {
+  const url = new URL(e.request.url);
 
-  /* Strategy 1 — Map tiles: Cache-first with network fallback
-     Tiles are cached after first view, then work offline forever */
   if (url.hostname.includes("tile.openstreetmap.org")) {
-    event.respondWith(
-      caches.open(TILE_CACHE).then((cache) =>
-        cache.match(event.request).then((cached) => {
+    e.respondWith(
+      caches.open(TILE_CACHE).then(cache =>
+        cache.match(e.request).then(cached => {
           if (cached) return cached;
-          return fetch(event.request)
-            .then((response) => {
-              if (response.ok) cache.put(event.request, response.clone());
-              return response;
-            })
-            .catch(() => {
-              /* Return a blank gray tile when fully offline and not cached */
-              return new Response(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#1e1220"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7a5570" font-size="12" font-family="sans-serif">Offline</text></svg>',
-                { headers: { "Content-Type": "image/svg+xml" } }
-              );
-            });
+          return fetch(e.request, { mode: "cors" })
+            .then(res => { if (res.ok) cache.put(e.request, res.clone()); return res; })
+            .catch(() => new Response(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#1e1220"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7a5570" font-size="14" font-family="sans-serif">Map offline — view once online</text></svg>',
+              { headers: { "Content-Type": "image/svg+xml" } }
+            ));
         })
       )
     );
     return;
   }
 
-  /* Strategy 2 — App shell: Cache-first always (offline first) */
   if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
+    e.respondWith(
+      caches.match(e.request).then(cached => {
         if (cached) return cached;
-        return fetch(event.request)
-          .then((response) => {
-            if (response.ok) {
-              const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return fetch(e.request)
+          .then(res => {
+            if (res.ok && e.request.method === "GET") {
+              caches.open(CACHE).then(c => c.put(e.request, res.clone()));
             }
-            return response;
+            return res;
           })
           .catch(() => {
-            /* For navigation requests, return the main app */
-            if (event.request.mode === "navigate") {
-              return caches.match("/index.html");
+            if (e.request.mode === "navigate") {
+              return caches.match(BASE + "/index.html") || caches.match("/index.html");
             }
           });
       })
@@ -106,8 +76,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  /* Strategy 3 — Everything else: Network with cache fallback */
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
-  );
+  e.respondWith(fetch(e.request).catch(() => new Response("", { status: 503 })));
 });
+
+self.addEventListener("message", e => { if (e.data === "skipWaiting") self.skipWaiting(); });
